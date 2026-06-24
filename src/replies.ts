@@ -1,4 +1,4 @@
-import { faqCategories, type FaqCategory, type FaqEntry } from "./faq-data";
+import { faqCategories, faqEntries, type FaqCategory, type FaqEntry } from "./faq-data";
 import { getEntriesByCategory, type PatternMatchResult } from "./pattern-matcher";
 
 const questionsPerPage = 7;
@@ -9,10 +9,11 @@ const categoryIcons: Record<FaqCategory, string> = {
   Dokumen: "📄",
   "Balik Nama": "🔁",
   Mutasi: "🚚",
-  "Layanan Tambahan": "🛰️",
-  Sistem: "⚙️",
-  Perkembangan: "📈",
-  Umum: "ℹ️"
+  "Cek Fisik": "🔎",
+  SIGNAL: "📱",
+  "Samsat Keliling": "🚐",
+  Fasilitas: "🪑",
+  Pengaduan: "📣"
 };
 
 // Menu utama yang ditampilkan sebagai inline keyboard Telegram.
@@ -28,13 +29,16 @@ export const mainMenu = {
     ],
     [
       { text: categoryLabel("Mutasi"), callback_data: "cat:Mutasi" },
-      { text: categoryLabel("Layanan Tambahan"), callback_data: "cat:Layanan Tambahan" }
+      { text: categoryLabel("Cek Fisik"), callback_data: "cat:Cek Fisik" }
     ],
     [
-      { text: categoryLabel("Sistem"), callback_data: "cat:Sistem" },
-      { text: categoryLabel("Perkembangan"), callback_data: "cat:Perkembangan" }
+      { text: categoryLabel("SIGNAL"), callback_data: "cat:SIGNAL" },
+      { text: categoryLabel("Samsat Keliling"), callback_data: "cat:Samsat Keliling" }
     ],
-    [{ text: categoryLabel("Umum"), callback_data: "cat:Umum" }]
+    [
+      { text: categoryLabel("Fasilitas"), callback_data: "cat:Fasilitas" },
+      { text: categoryLabel("Pengaduan"), callback_data: "cat:Pengaduan" }
+    ]
   ]
 };
 
@@ -60,12 +64,12 @@ export function buildStartMessage() {
     "- jam operasional samsat",
     "- syarat bayar pajak",
     "- stnk hilang",
-    "- apa itu pattern matching",
+    "- cek fisik kendaraan",
     "",
     "Ketik /clear untuk membersihkan pesan yang dapat dihapus oleh bot.",
     "Profil Telegram dasar dicatat untuk kebutuhan riset saat Anda menggunakan /start.",
     "",
-    `Dataset aktif: 100 FAQ dalam ${faqCategories.length} kategori.`
+    `Dataset aktif: ${faqEntries.length} FAQ dalam ${faqCategories.length} kategori.`
   ].join("\n"));
 }
 

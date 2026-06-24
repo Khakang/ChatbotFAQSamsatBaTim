@@ -7,10 +7,11 @@ export const faqCategories = [
   "Dokumen",
   "Balik Nama",
   "Mutasi",
-  "Layanan Tambahan",
-  "Sistem",
-  "Perkembangan",
-  "Umum"
+  "Cek Fisik",
+  "SIGNAL",
+  "Samsat Keliling",
+  "Fasilitas",
+  "Pengaduan"
 ] as const;
 
 export type FaqCategory = (typeof faqCategories)[number];

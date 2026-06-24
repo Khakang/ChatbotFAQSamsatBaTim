@@ -38,17 +38,18 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Button navigation refreshes the existing menu message instead of sending a new chat message
 - Free-text question matching with pattern matching
 - Text-only input; media such as photos, videos, stickers, voice notes, and files are rejected with a short instruction message
-- 100 FAQ entries from the SAMSAT Bandung Timur dataset
-- 9 FAQ categories:
+- 233 FAQ entries from the SAMSAT Bandung Timur dataset
+- 10 FAQ categories:
   - Layanan
   - Pajak
   - Dokumen
   - Balik Nama
   - Mutasi
-  - Layanan Tambahan
-  - Sistem
-  - Perkembangan
-  - Umum
+  - Cek Fisik
+  - SIGNAL
+  - Samsat Keliling
+  - Fasilitas
+  - Pengaduan
 - Webhook secret validation with `X-Telegram-Bot-Api-Secret-Token`
 - Local dry-run mode for testing webhook behavior without sending real Telegram messages
 - Automatic research profile recording after `/start`
@@ -253,18 +254,18 @@ User input:
 syarat bayar pajak kendaraan
 ```
 
-The matcher normalizes and tokenizes the input, then compares it with all 100 FAQ entries. The FAQ question `Syarat bayar pajak` gets a high score because it shares the important terms `syarat`, `bayar`, and `pajak`.
+The matcher normalizes and tokenizes the input, then compares it with all 233 FAQ entries. The FAQ question `Apa syarat membayar pajak tahunan` gets a high score because it shares important terms such as `syarat`, `bayar`, and `pajak`.
 
 Bot response:
 
 ```text
-Kategori: Pajak
-Pertanyaan: Syarat bayar pajak
+Pertanyaan: Apa syarat membayar pajak tahunan
 
-Jawaban: STNK dan KTP
+Secara umum pembayaran pajak tahunan memerlukan STNK asli dan identitas pemilik kendaraan yang masih berlaku sesuai ketentuan pelayanan.
 
-Sumber: Referensi
-Metode: pattern matching (skor ...)
+Sumber: https://bapenda.jabarprov.go.id
+
+Silakan beri rating untuk jawaban ini:
 ```
 
 ### Setup on a New Device or New Account
@@ -603,17 +604,18 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Navigasi tombol memperbarui pesan menu yang sama, bukan mengirim chat baru
 - Pencarian pertanyaan bebas dengan pattern matching
 - Input hanya teks; media seperti foto, video, sticker, voice note, dan file ditolak dengan pesan instruksi singkat
-- 100 data FAQ dari dataset SAMSAT Bandung Timur
-- 9 kategori FAQ:
+- 233 data FAQ dari dataset SAMSAT Bandung Timur
+- 10 kategori FAQ:
   - Layanan
   - Pajak
   - Dokumen
   - Balik Nama
   - Mutasi
-  - Layanan Tambahan
-  - Sistem
-  - Perkembangan
-  - Umum
+  - Cek Fisik
+  - SIGNAL
+  - Samsat Keliling
+  - Fasilitas
+  - Pengaduan
 - Validasi webhook secret dengan `X-Telegram-Bot-Api-Secret-Token`
 - Mode dry-run lokal untuk testing webhook tanpa mengirim pesan Telegram sungguhan
 - Pencatatan profil riset otomatis setelah `/start`
@@ -818,18 +820,18 @@ Input user:
 syarat bayar pajak kendaraan
 ```
 
-Matcher menormalisasi dan memecah input menjadi token, lalu membandingkannya dengan 100 FAQ. Pertanyaan FAQ `Syarat bayar pajak` mendapat skor tinggi karena memiliki kata penting yang sama: `syarat`, `bayar`, dan `pajak`.
+Matcher menormalisasi dan memecah input menjadi token, lalu membandingkannya dengan 233 FAQ. Pertanyaan FAQ `Apa syarat membayar pajak tahunan` mendapat skor tinggi karena memiliki kata penting seperti `syarat`, `bayar`, dan `pajak`.
 
 Balasan bot:
 
 ```text
-Kategori: Pajak
-Pertanyaan: Syarat bayar pajak
+Pertanyaan: Apa syarat membayar pajak tahunan
 
-Jawaban: STNK dan KTP
+Secara umum pembayaran pajak tahunan memerlukan STNK asli dan identitas pemilik kendaraan yang masih berlaku sesuai ketentuan pelayanan.
 
-Sumber: Referensi
-Metode: pattern matching (skor ...)
+Sumber: https://bapenda.jabarprov.go.id
+
+Silakan beri rating untuk jawaban ini:
 ```
 
 ### Setup di Device Baru atau Account Baru

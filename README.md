@@ -286,10 +286,10 @@ Use this section if you move the project to a new laptop, a new Cloudflare accou
    npm --version
    ```
 
-3. Move or clone the project:
+3. Clone the project:
 
    ```sh
-   git clone <repository-url>
+   git clone https://github.com/0x94t3z/tebot.git
    cd tebot
    ```
 
@@ -323,6 +323,7 @@ Use this section if you move the project to a new laptop, a new Cloudflare accou
    ```env
    BOT_TOKEN=your-botfather-token
    WEBHOOK_SECRET=your-random-webhook-secret
+   ADMIN_EXPORT_TOKEN=your-random-export-token
    ```
 
 9. Log in to Cloudflare:
@@ -363,6 +364,16 @@ Use this section if you move the project to a new laptop, a new Cloudflare accou
      ]
    }
    ```
+
+   If you want a new Worker URL in the same Cloudflare account, change the `name` field before deploying:
+
+   ```jsonc
+   {
+     "name": "samsat-bandung-timur-bot-v2"
+   }
+   ```
+
+   If you keep the same `name` in the same Cloudflare account, Wrangler deploys to the same Worker route. If you use a different Cloudflare account, the same Worker name can still produce a different `workers.dev` URL because it belongs to that account.
 
    `MESSAGE_STORE` is used by `/clear` to store tracked Telegram `message_id` values. If you move to a different Cloudflare account, create a new KV namespace:
 
@@ -408,6 +419,14 @@ Use this section if you move the project to a new laptop, a new Cloudflare accou
    curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" \
      -d "url=$WORKER_URL/webhook" \
      -d "secret_token=$WEBHOOK_SECRET"
+   ```
+
+   This replaces the active webhook for that Telegram bot. Telegram will send future bot updates to the new Worker URL.
+
+   Check the active webhook:
+
+   ```sh
+   curl "https://api.telegram.org/bot$BOT_TOKEN/getWebhookInfo"
    ```
 
 16. Test the bot in Telegram:
@@ -832,10 +851,10 @@ Gunakan bagian ini jika project dipindahkan ke laptop baru, Cloudflare account b
    npm --version
    ```
 
-3. Pindahkan atau clone project:
+3. Clone project:
 
    ```sh
-   git clone <url-repository>
+   git clone https://github.com/0x94t3z/tebot.git
    cd tebot
    ```
 
@@ -869,6 +888,7 @@ Gunakan bagian ini jika project dipindahkan ke laptop baru, Cloudflare account b
    ```env
    BOT_TOKEN=token-dari-botfather
    WEBHOOK_SECRET=secret-random
+   ADMIN_EXPORT_TOKEN=token-random-export
    ```
 
 9. Login ke Cloudflare:
@@ -909,6 +929,16 @@ Gunakan bagian ini jika project dipindahkan ke laptop baru, Cloudflare account b
      ]
    }
    ```
+
+   Jika ingin URL Worker baru di Cloudflare account yang sama, ubah field `name` sebelum deploy:
+
+   ```jsonc
+   {
+     "name": "samsat-bandung-timur-bot-v2"
+   }
+   ```
+
+   Jika `name` tetap sama di Cloudflare account yang sama, Wrangler akan deploy ke Worker route yang sama. Jika memakai Cloudflare account berbeda, nama Worker yang sama tetap bisa menghasilkan URL `workers.dev` berbeda karena URL tersebut milik account itu.
 
    `MESSAGE_STORE` dipakai oleh `/clear` untuk menyimpan `message_id` Telegram yang sudah dilacak. Jika pindah ke Cloudflare account lain, buat KV namespace baru:
 
@@ -954,6 +984,14 @@ Gunakan bagian ini jika project dipindahkan ke laptop baru, Cloudflare account b
    curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" \
      -d "url=$WORKER_URL/webhook" \
      -d "secret_token=$WEBHOOK_SECRET"
+   ```
+
+   Ini mengganti webhook aktif untuk bot Telegram tersebut. Setelah itu Telegram akan mengirim update bot ke URL Worker yang baru.
+
+   Cek webhook aktif:
+
+   ```sh
+   curl "https://api.telegram.org/bot$BOT_TOKEN/getWebhookInfo"
    ```
 
 16. Test bot di Telegram:

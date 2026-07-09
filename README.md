@@ -48,11 +48,11 @@ The bot supports:
 /clear
 ```
 
-This command tries to delete the whole bot conversation from the first message known by the bot until the latest `/clear` command. It includes user messages, bot replies, media messages that were rejected by the bot, and the `/clear` command message itself when Telegram allows it. The bot sends a fresh main menu immediately, then runs the old-message cleanup in the background so the chat page stays open and does not look empty.
+This command deletes the conversation messages that have been tracked by the bot. It includes user messages, bot replies, media messages that were rejected by the bot, and the `/clear` command message itself when Telegram allows it. The bot sends a fresh main menu immediately, then runs the old-message cleanup in the background so the opening text and menu stay visible.
 
-Message IDs are stored in Cloudflare KV through the `MESSAGE_STORE` binding, so tracking can survive Worker runtime restarts. The bot stores the latest tracked message IDs and also stores a first-to-last message ID range per chat. When `/clear` runs, the bot builds delete candidates from that range and deletes them in Telegram batches.
+Message IDs are stored in Cloudflare KV through the `MESSAGE_STORE` binding, so tracking can survive Worker runtime restarts. The bot stores up to 10000 tracked message IDs per chat and deletes only those known IDs in Telegram batches. This is safer than deleting a guessed numeric range because it protects the fresh main menu from being removed.
 
-Important limitation: Telegram bots can only delete messages by `message_id`, and deletion is still limited by Telegram Bot API rules. The bot cannot delete messages that were sent before tracking was enabled, messages outside the stored range, or messages Telegram refuses to delete. The implementation keeps a safety limit of 10000 message IDs per `/clear` request to avoid webhook timeouts.
+Important limitation: Telegram bots can only delete messages by `message_id`, and deletion is still limited by Telegram Bot API rules. The bot cannot delete messages that were sent before tracking was enabled, messages whose IDs were never received by the bot, or messages Telegram refuses to delete.
 
 ### Research Data CSV
 
@@ -614,11 +614,11 @@ Bot mendukung:
 /clear
 ```
 
-Command ini mencoba menghapus seluruh percakapan bot dari pesan pertama yang diketahui bot sampai command `/clear` terbaru. Ini mencakup pesan user, balasan bot, pesan media yang ditolak oleh bot, dan pesan `/clear` itu sendiri jika Telegram mengizinkan. Bot langsung mengirim menu utama baru, lalu membersihkan pesan lama di background agar halaman chat tetap terbuka dan tidak terlihat kosong.
+Command ini menghapus pesan percakapan yang sudah dilacak oleh bot. Ini mencakup pesan user, balasan bot, pesan media yang ditolak oleh bot, dan pesan `/clear` itu sendiri jika Telegram mengizinkan. Bot langsung mengirim menu utama baru, lalu membersihkan pesan lama di background agar kata pembuka dan menu tetap terlihat.
 
-Message ID disimpan di Cloudflare KV melalui binding `MESSAGE_STORE`, sehingga data pelacakan tetap tersedia meskipun runtime Worker restart. Bot menyimpan daftar message ID terbaru dan juga menyimpan rentang message ID pertama sampai terakhir per chat. Saat `/clear` dijalankan, bot membuat kandidat penghapusan dari rentang tersebut lalu menghapusnya secara batch di Telegram.
+Message ID disimpan di Cloudflare KV melalui binding `MESSAGE_STORE`, sehingga data pelacakan tetap tersedia meskipun runtime Worker restart. Bot menyimpan sampai 10000 message ID yang terlacak per chat dan hanya menghapus ID yang memang diketahui oleh bot secara batch di Telegram. Cara ini lebih aman daripada menghapus berdasarkan tebakan rentang angka karena menu utama baru tidak ikut terhapus.
 
-Batasan penting: bot Telegram hanya bisa menghapus pesan berdasarkan `message_id`, dan penghapusan tetap mengikuti aturan Telegram Bot API. Bot tidak bisa menghapus pesan yang dikirim sebelum tracking aktif, pesan di luar rentang yang tersimpan, atau pesan yang ditolak oleh Telegram. Implementasi ini memakai batas keamanan 10000 message ID per request `/clear` agar webhook tidak timeout.
+Batasan penting: bot Telegram hanya bisa menghapus pesan berdasarkan `message_id`, dan penghapusan tetap mengikuti aturan Telegram Bot API. Bot tidak bisa menghapus pesan yang dikirim sebelum tracking aktif, pesan yang ID-nya tidak pernah diterima bot, atau pesan yang ditolak oleh Telegram.
 
 ### CSV Data Riset
 

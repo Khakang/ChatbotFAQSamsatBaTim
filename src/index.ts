@@ -66,15 +66,8 @@ interface TelegramApiResponse {
   };
 }
 
-interface MessageRangeRecord {
-  first_message_id: number;
-  last_message_id: number;
-}
-
-const maxTrackedMessagesPerChat = 1000;
-const maxClearRangeMessages = 10000;
+const maxTrackedMessagesPerChat = 10000;
 const trackedMessageIdsByChat = new Map<number, Set<number>>();
-const trackedMessageRangesByChat = new Map<number, MessageRangeRecord>();
 
 export default {
   // Entry point utama Cloudflare Worker untuk menerima request HTTP.
@@ -276,7 +269,7 @@ async function handleStartCommand(env: Env, chatId: number, user?: TelegramUser)
   await sendMessage(env, chatId, buildStartMessage(), mainMenu);
 }
 
-// Membersihkan chat berdasarkan message_id yang dilacak dan rentang pesan yang diketahui bot.
+// Membersihkan chat berdasarkan message_id yang benar-benar dilacak oleh bot.
 async function handleClearCommand(
   env: Env,
   chatId: number,
@@ -285,8 +278,7 @@ async function handleClearCommand(
 ) {
   await trackMessageId(env, chatId, commandMessageId);
 
-  const trackedMessageIds = await getTrackedMessageIds(env, chatId);
-  const messageIds = await getClearCandidateMessageIds(env, chatId, trackedMessageIds, commandMessageId);
+  const messageIds = await getTrackedMessageIds(env, chatId);
   await clearTrackedMessageIds(env, chatId);
   await sendMessage(env, chatId, buildStartMessage(), mainMenu);
 
@@ -840,7 +832,6 @@ async function trackMessageId(env: Env, chatId: number, messageId?: number) {
 
   const messageIds = new Set(await getTrackedMessageIds(env, chatId));
   messageIds.add(messageId);
-  await updateTrackedMessageRange(env, chatId, [...messageIds]);
 
   while (messageIds.size > maxTrackedMessagesPerChat) {
     const oldest = Math.min(...messageIds);
@@ -857,34 +848,6 @@ async function getTrackedMessageIds(env: Env, chatId: number) {
   const kvIds = await getTrackedMessageIdsFromKv(env, chatId);
 
   return [...new Set([...kvIds, ...memoryIds])].sort((a, b) => b - a);
-}
-
-// Membuat daftar kandidat pesan dari awal sampai akhir percakapan yang diketahui bot.
-async function getClearCandidateMessageIds(
-  env: Env,
-  chatId: number,
-  trackedMessageIds: number[],
-  commandMessageId?: number
-) {
-  const range = await getTrackedMessageRange(env, chatId);
-  const knownMessageIds = [commandMessageId, ...trackedMessageIds].filter(isPositiveMessageId);
-
-  if (!range && knownMessageIds.length === 0) {
-    return [];
-  }
-
-  const firstKnownMessageId = knownMessageIds.length > 0 ? Math.min(...knownMessageIds) : range!.first_message_id;
-  const lastKnownMessageId = knownMessageIds.length > 0 ? Math.max(...knownMessageIds) : range!.last_message_id;
-  const firstMessageId = Math.min(range?.first_message_id ?? firstKnownMessageId, firstKnownMessageId);
-  const lastMessageId = Math.max(range?.last_message_id ?? lastKnownMessageId, lastKnownMessageId);
-  const startMessageId = Math.max(firstMessageId, lastMessageId - maxClearRangeMessages + 1);
-  const rangeMessageIds: number[] = [];
-
-  for (let messageId = lastMessageId; messageId >= startMessageId; messageId -= 1) {
-    rangeMessageIds.push(messageId);
-  }
-
-  return [...new Set([...rangeMessageIds, ...knownMessageIds])].sort((a, b) => b - a);
 }
 
 // Mengambil message_id dari Cloudflare KV jika binding tersedia.
@@ -904,70 +867,10 @@ async function getTrackedMessageIdsFromKv(env: Env, chatId: number) {
   }
 }
 
-// Memperbarui batas awal dan akhir message_id agar /clear bisa mencoba menghapus satu rentang chat.
-async function updateTrackedMessageRange(env: Env, chatId: number, messageIds: number[]) {
-  const validMessageIds = messageIds.filter(isPositiveMessageId);
-  if (validMessageIds.length === 0) {
-    return;
-  }
-
-  const existingRange = await getTrackedMessageRange(env, chatId);
-  const range: MessageRangeRecord = {
-    first_message_id: Math.min(existingRange?.first_message_id ?? validMessageIds[0], ...validMessageIds),
-    last_message_id: Math.max(existingRange?.last_message_id ?? validMessageIds[0], ...validMessageIds)
-  };
-
-  trackedMessageRangesByChat.set(chatId, range);
-  await env.MESSAGE_STORE?.put(getMessageRangeStoreKey(chatId), JSON.stringify(range));
-}
-
-// Mengambil rentang message_id dari KV dan memori runtime.
-async function getTrackedMessageRange(env: Env, chatId: number): Promise<MessageRangeRecord | null> {
-  const memoryRange = trackedMessageRangesByChat.get(chatId);
-  const kvRange = await getTrackedMessageRangeFromKv(env, chatId);
-
-  if (!memoryRange) {
-    return kvRange;
-  }
-
-  if (!kvRange) {
-    return memoryRange;
-  }
-
-  return {
-    first_message_id: Math.min(memoryRange.first_message_id, kvRange.first_message_id),
-    last_message_id: Math.max(memoryRange.last_message_id, kvRange.last_message_id)
-  };
-}
-
-// Mengambil rentang message_id dari Cloudflare KV jika binding tersedia.
-async function getTrackedMessageRangeFromKv(env: Env, chatId: number): Promise<MessageRangeRecord | null> {
-  const value = await env.MESSAGE_STORE?.get(getMessageRangeStoreKey(chatId));
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as Partial<MessageRangeRecord>;
-    if (isPositiveMessageId(parsed.first_message_id) && isPositiveMessageId(parsed.last_message_id)) {
-      return {
-        first_message_id: parsed.first_message_id,
-        last_message_id: parsed.last_message_id
-      };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 // Menghapus daftar message_id setelah command /clear selesai.
 async function clearTrackedMessageIds(env: Env, chatId: number) {
   trackedMessageIdsByChat.delete(chatId);
-  trackedMessageRangesByChat.delete(chatId);
   await env.MESSAGE_STORE?.delete(getMessageStoreKey(chatId));
-  await env.MESSAGE_STORE?.delete(getMessageRangeStoreKey(chatId));
 }
 
 // Membagi message_id menjadi batch sesuai batas deleteMessages Telegram.
@@ -984,11 +887,6 @@ function chunkMessageIds(messageIds: number[], size: number) {
 // Key penyimpanan message_id per chat.
 function getMessageStoreKey(chatId: number) {
   return `chat:${chatId}:message_ids`;
-}
-
-// Key penyimpanan batas awal dan akhir message_id per chat.
-function getMessageRangeStoreKey(chatId: number) {
-  return `chat:${chatId}:message_range`;
 }
 
 // Memastikan message_id valid sebelum disimpan atau dikirim ke Telegram API.

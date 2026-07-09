@@ -177,6 +177,7 @@ export async function handleUpdate(update: TelegramUpdate, env: Env, ctx?: Execu
     })
   );
   await sendMessage(env, chatId, buildFaqMessage(result));
+  await sendMessage(env, chatId, buildStartMessage(), mainMenu);
 }
 
 // Endpoint sederhana untuk memastikan Worker aktif.
@@ -240,6 +241,7 @@ async function handleCallback(
 
     console.log(JSON.stringify({ event: "callback_route", route: "faq", faq_id: entry.id }));
     await editOrSendMessage(env, chatId, messageId, buildDirectFaqMessage(entry));
+    await sendMessage(env, chatId, buildStartMessage(), mainMenu);
   }
 }
 

@@ -39,6 +39,7 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Text-only input handling
 - FAQ dataset for SAMSAT Bandung Timur
 - Accuracy score on each FAQ response
+- Main menu is shown again after each FAQ answer
 
 ### Clear Command
 
@@ -590,6 +591,7 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Pencarian pertanyaan bebas dengan pattern matching
 - Input hanya teks; media seperti foto, video, sticker, voice note, dan file ditolak dengan pesan instruksi singkat
 - 100 data FAQ dari dataset SAMSAT Bandung Timur
+- Menu utama ditampilkan kembali setelah setiap jawaban FAQ
 - 9 kategori FAQ:
   - Layanan
   - Pajak

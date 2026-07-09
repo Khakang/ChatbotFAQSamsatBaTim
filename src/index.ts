@@ -302,6 +302,7 @@ async function handleCallback(
       buildDirectFaqMessage(entry, stats, vote.choice),
       buildSatisfactionKeyboard(entry.id, stats)
     );
+    await sendMessage(env, chatId, buildStartMessage(), mainMenu);
     return;
   }
 

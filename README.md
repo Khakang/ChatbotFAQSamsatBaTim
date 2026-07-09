@@ -738,6 +738,7 @@ Jawaban FAQ dikirim
   -> jika vote berubah, total lama dikurangi dan total baru ditambah
   -> hasil voting disimpan ke RESEARCH_STORE
   -> pesan jawaban di-update dengan persentase voting terbaru
+  -> bot menampilkan kembali menu utama
 ```
 
 Rumus skor kepuasan:

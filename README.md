@@ -38,7 +38,7 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Free-text FAQ matching using pattern matching
 - Text-only input handling
 - FAQ dataset for SAMSAT Bandung Timur
-- Accuracy score on each FAQ response
+- Satisfaction voting UI on each FAQ response
 - Main menu is shown again after each FAQ answer
 
 ### Clear Command
@@ -63,7 +63,14 @@ The bot stores basic Telegram profile data for research after the user sends:
 /start
 ```
 
-After the bot gives an FAQ answer, it shows the algorithm accuracy score. A score of `75%` or above is treated as `Aman`; a score below `75%` is treated as `Kurang memuaskan`.
+After the bot gives an FAQ answer, users can vote whether the answer is `Memuaskan` or `Tidak memuaskan`. The bot calculates the satisfaction score from user votes:
+
+```text
+Memuaskan (%) = jumlah vote memuaskan / total vote * 100
+Tidak memuaskan (%) = jumlah vote tidak memuaskan / total vote * 100
+```
+
+Each Telegram user has one active vote per FAQ. If the same user changes their choice, the old vote is corrected instead of counted twice.
 
 Exported fields:
 
@@ -101,6 +108,20 @@ open research.html
 ```
 
 The research export endpoints require `ADMIN_EXPORT_TOKEN`. Do not share this token publicly.
+
+Export FAQ satisfaction recap:
+
+```sh
+curl "https://samsat-bandung-timur-bot.uniframe.workers.dev/satisfaction.csv" \
+  -H "Authorization: Bearer $ADMIN_EXPORT_TOKEN"
+```
+
+Readable versions are also available:
+
+```text
+/satisfaction.txt
+/satisfaction.html
+```
 
 ### Why It Can Run for Free
 
@@ -225,14 +246,14 @@ Matching flow:
 5. Score each FAQ candidate.
 6. Sort candidates by score.
 7. Return the best FAQ if the score passes the minimum threshold.
-8. Show the score as an accuracy percentage in the bot answer.
+8. Use the score internally to decide whether the FAQ answer is relevant enough.
 
-The displayed score is a **pattern matching relevance score**, not a statistical machine-learning accuracy value. The score is calculated from exact/partial phrase matching, custom pattern matching, important token overlap, FAQ token coverage, known-query token coverage, synonym expansion, and a small domain-anchor bonus for SAMSAT-related terms. Regex only contributes during preprocessing through `normalize()`; it cleans text before scoring but is not the main scoring method.
+The pattern matching score is an **internal relevance score**, not a statistical machine-learning accuracy value. The score is calculated from exact/partial phrase matching, custom pattern matching, important token overlap, FAQ token coverage, known-query token coverage, synonym expansion, and a small domain-anchor bonus for SAMSAT-related terms. Regex only contributes during preprocessing through `normalize()`; it cleans text before scoring but is not the main scoring method.
 
-Accuracy interpretation:
+User-facing satisfaction score:
 
-- `>= 75%`: answer is considered `Aman`.
-- `< 75%`: answer is considered `Kurang memuaskan`.
+- `Memuaskan (%)`: percentage of users who voted that the answer was satisfying.
+- `Tidak memuaskan (%)`: percentage of users who voted that the answer was not satisfying.
 
 Example:
 
@@ -246,14 +267,15 @@ The matcher normalizes and tokenizes the input, then compares it with all 100 FA
 Bot response:
 
 ```text
-Kategori: Pajak
 Pertanyaan: Syarat bayar pajak
 
-Jawaban: STNK dan KTP
-
-Skor akurasi: 100% (Aman)
+STNK dan KTP
 
 Sumber: Referensi
+
+Penilaian pengguna:
+Belum ada suara.
+Silakan nilai apakah jawaban ini memuaskan.
 ```
 
 ### Setup on a New Device or New Account
@@ -594,6 +616,7 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Input hanya teks; media seperti foto, video, sticker, voice note, dan file ditolak dengan pesan instruksi singkat
 - 100 data FAQ dari dataset SAMSAT Bandung Timur
 - Menu utama ditampilkan kembali setelah setiap jawaban FAQ
+- UI voting kepuasan pada setiap jawaban FAQ
 - 9 kategori FAQ:
   - Layanan
   - Pajak
@@ -607,8 +630,7 @@ https://samsat-bandung-timur-bot.uniframe.workers.dev/webhook
 - Validasi webhook secret dengan `X-Telegram-Bot-Api-Secret-Token`
 - Mode dry-run lokal untuk testing webhook tanpa mengirim pesan Telegram sungguhan
 - Pencatatan profil riset otomatis setelah `/start`
-- Skor akurasi pada setiap jawaban FAQ
-- Export CSV terproteksi untuk data profil Telegram
+- Export CSV terproteksi untuk data profil Telegram dan rekap kepuasan FAQ
 
 ### Command Clear
 
@@ -632,7 +654,14 @@ Bot menyimpan data profil Telegram dasar untuk kebutuhan riset setelah user meng
 /start
 ```
 
-Setelah bot memberikan jawaban FAQ, bot menampilkan skor akurasi dari algoritma. Skor `75%` ke atas dianggap `Aman`, sedangkan skor di bawah `75%` dianggap `Kurang memuaskan`.
+Setelah bot memberikan jawaban FAQ, user dapat memilih apakah jawaban tersebut `Memuaskan` atau `Tidak memuaskan`. Bot menghitung skor kepuasan dari voting user:
+
+```text
+Memuaskan (%) = jumlah vote memuaskan / total vote * 100
+Tidak memuaskan (%) = jumlah vote tidak memuaskan / total vote * 100
+```
+
+Setiap user Telegram memiliki satu vote aktif per FAQ. Jika user yang sama mengganti pilihan, vote lama dikoreksi dan tidak dihitung dobel.
 
 Field export:
 
@@ -644,6 +673,20 @@ last_name
 language_code
 started_at
 last_seen_at
+```
+
+Export rekap kepuasan FAQ:
+
+```sh
+curl "https://samsat-bandung-timur-bot.uniframe.workers.dev/satisfaction.csv" \
+  -H "Authorization: Bearer $ADMIN_EXPORT_TOKEN"
+```
+
+Versi yang mudah dibaca juga tersedia:
+
+```text
+/satisfaction.txt
+/satisfaction.html
 ```
 
 Export CSV melalui endpoint terproteksi:
@@ -794,14 +837,14 @@ Alur pencocokan:
 5. Setiap kandidat FAQ diberi skor.
 6. Kandidat diurutkan berdasarkan skor.
 7. FAQ terbaik dikembalikan jika skornya melewati batas minimum.
-8. Skor ditampilkan sebagai persentase akurasi pada jawaban bot.
+8. Skor dipakai secara internal untuk menentukan apakah jawaban FAQ cukup relevan.
 
-Skor yang ditampilkan adalah **skor relevansi pattern matching**, bukan nilai akurasi statistik seperti pada evaluasi machine learning. Skor dihitung dari kecocokan frasa persis/sebagian, custom pattern, overlap kata penting, cakupan token FAQ, cakupan token input yang dikenal dataset, perluasan sinonim, dan bonus kecil untuk istilah domain SAMSAT. Regex hanya berperan pada tahap preprocessing melalui fungsi `normalize()`; regex membersihkan teks sebelum scoring, tetapi bukan metode utama penilaian.
+Skor pattern matching adalah **skor relevansi internal**, bukan nilai akurasi statistik seperti pada evaluasi machine learning. Skor dihitung dari kecocokan frasa persis/sebagian, custom pattern, overlap kata penting, cakupan token FAQ, cakupan token input yang dikenal dataset, perluasan sinonim, dan bonus kecil untuk istilah domain SAMSAT. Regex hanya berperan pada tahap preprocessing melalui fungsi `normalize()`; regex membersihkan teks sebelum scoring, tetapi bukan metode utama penilaian.
 
-Interpretasi akurasi:
+Skor kepuasan yang terlihat oleh user:
 
-- `>= 75%`: jawaban dianggap `Aman`.
-- `< 75%`: jawaban dianggap `Kurang memuaskan`.
+- `Memuaskan (%)`: persentase user yang menilai jawaban memuaskan.
+- `Tidak memuaskan (%)`: persentase user yang menilai jawaban tidak memuaskan.
 
 Contoh:
 
@@ -815,14 +858,15 @@ Matcher menormalisasi dan memecah input menjadi token, lalu membandingkannya den
 Balasan bot:
 
 ```text
-Kategori: Pajak
 Pertanyaan: Syarat bayar pajak
 
-Jawaban: STNK dan KTP
-
-Skor akurasi: 100% (Aman)
+STNK dan KTP
 
 Sumber: Referensi
+
+Penilaian pengguna:
+Belum ada suara.
+Silakan nilai apakah jawaban ini memuaskan.
 ```
 
 ### Setup di Device Baru atau Account Baru

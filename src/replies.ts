@@ -2,6 +2,14 @@ import { type FaqCategory, type FaqEntry } from "./faq-data";
 import { getEntriesByCategory, type PatternMatchResult } from "./pattern-matcher";
 
 const questionsPerPage = 7;
+const voteBarSegments = 10;
+
+export type SatisfactionChoice = "satisfied" | "dissatisfied";
+
+export interface SatisfactionStats {
+  satisfied: number;
+  dissatisfied: number;
+}
 
 const categoryIcons: Record<FaqCategory, string> = {
   Layanan: "🏢",
@@ -94,32 +102,53 @@ export function buildQuestionKeyboard(category: FaqCategory, page = 0) {
 }
 
 // Membuat pesan jawaban dari hasil pattern matching.
-export function buildFaqMessage(result: PatternMatchResult) {
+export function buildFaqMessage(
+  result: PatternMatchResult,
+  stats: SatisfactionStats = emptySatisfactionStats(),
+  selectedChoice?: SatisfactionChoice
+) {
   const { entry } = result;
-  const accuracy = buildAccuracyText(result.score);
 
   return [
     `Pertanyaan: ${entry.question}`,
     "",
     entry.answer,
     "",
-    accuracy,
-    "",
     `Sumber: ${entry.source}`,
+    "",
+    buildSatisfactionText(stats, selectedChoice),
   ].join("\n");
 }
 
 // Membuat pesan jawaban saat user memilih FAQ langsung dari tombol.
-export function buildDirectFaqMessage(entry: FaqEntry) {
+export function buildDirectFaqMessage(
+  entry: FaqEntry,
+  stats: SatisfactionStats = emptySatisfactionStats(),
+  selectedChoice?: SatisfactionChoice
+) {
   return [
     `Pertanyaan: ${entry.question}`,
     "",
     entry.answer,
     "",
-    buildAccuracyText(100),
-    "",
     `Sumber: ${entry.source}`,
+    "",
+    buildSatisfactionText(stats, selectedChoice),
   ].join("\n");
+}
+
+// Membuat tombol voting kepuasan untuk satu jawaban FAQ.
+export function buildSatisfactionKeyboard(faqId: number, stats: SatisfactionStats = emptySatisfactionStats()) {
+  const percentages = getSatisfactionPercentages(stats);
+
+  return {
+    inline_keyboard: [
+      [
+        { text: `👍 Memuaskan ${percentages.satisfied}%`, callback_data: `vote:${faqId}:s` },
+        { text: `👎 Tidak memuaskan ${percentages.dissatisfied}%`, callback_data: `vote:${faqId}:d` }
+      ]
+    ]
+  };
 }
 
 // Pesan fallback jika pertanyaan user tidak cocok dengan data FAQ.
@@ -157,23 +186,6 @@ function truncateButtonText(value: string) {
   return value.length > 55 ? `${value.slice(0, 52)}...` : value;
 }
 
-// Membuat label skor akurasi dari hasil scoring pattern matching.
-function buildAccuracyText(score: number) {
-  const accuracy = clampAccuracy(score);
-  const status = accuracy >= 75 ? "Aman" : "Kurang memuaskan";
-
-  return `Skor akurasi: ${accuracy}% (${status})`;
-}
-
-// Menjaga skor akurasi tetap berada pada rentang 0 sampai 100.
-function clampAccuracy(score: number) {
-  if (!Number.isFinite(score)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
 // Menambahkan panduan command singkat pada setiap balasan bot.
 function withCommandHint(message: string) {
   return [
@@ -187,6 +199,64 @@ function withCommandHint(message: string) {
 // Membuat label kategori dengan icon agar menu Telegram lebih mudah dipindai.
 function categoryLabel(category: FaqCategory) {
   return `${categoryIcons[category]} ${category}`;
+}
+
+// Nilai awal voting saat FAQ belum memiliki penilaian user.
+function emptySatisfactionStats(): SatisfactionStats {
+  return {
+    satisfied: 0,
+    dissatisfied: 0
+  };
+}
+
+// Membuat ringkasan voting agar user melihat skor kepuasan berbasis penilaian.
+function buildSatisfactionText(stats: SatisfactionStats, selectedChoice?: SatisfactionChoice) {
+  const total = stats.satisfied + stats.dissatisfied;
+  const percentages = getSatisfactionPercentages(stats);
+  const selectedText =
+    selectedChoice === "satisfied"
+      ? "\nPilihan Anda: Memuaskan"
+      : selectedChoice === "dissatisfied"
+        ? "\nPilihan Anda: Tidak memuaskan"
+        : "";
+
+  if (total === 0) {
+    return [
+      "Penilaian pengguna:",
+      "Belum ada suara.",
+      "Silakan nilai apakah jawaban ini memuaskan."
+    ].join("\n");
+  }
+
+  return [
+    "Hasil voting pengguna:",
+    `👍 Memuaskan: ${buildVoteBar(percentages.satisfied)} ${percentages.satisfied}% (${stats.satisfied})`,
+    `👎 Tidak memuaskan: ${buildVoteBar(percentages.dissatisfied)} ${percentages.dissatisfied}% (${stats.dissatisfied})`,
+    `Total suara: ${total}${selectedText}`
+  ].join("\n");
+}
+
+// Menghitung persentase vote puas/tidak puas dari total suara yang tersedia.
+function getSatisfactionPercentages(stats: SatisfactionStats) {
+  const total = stats.satisfied + stats.dissatisfied;
+
+  if (total <= 0) {
+    return {
+      satisfied: 0,
+      dissatisfied: 0
+    };
+  }
+
+  return {
+    satisfied: Math.round((stats.satisfied / total) * 100),
+    dissatisfied: Math.round((stats.dissatisfied / total) * 100)
+  };
+}
+
+// Membuat bar visual sederhana seperti UI voting.
+function buildVoteBar(percent: number) {
+  const filledSegments = Math.max(0, Math.min(voteBarSegments, Math.round(percent / 10)));
+  return "█".repeat(filledSegments) + "░".repeat(voteBarSegments - filledSegments);
 }
 
 // Mengambil data FAQ sesuai halaman kategori.

@@ -4,6 +4,7 @@ import {
   buildFaqMessage,
   buildCategoryMessage,
   buildQuestionKeyboard,
+  buildSatisfactionKeyboard,
   buildStartMessage,
   buildUnknownMessage,
   buildUnsupportedMessage,
@@ -67,15 +68,16 @@ describe("format jawaban FAQ", () => {
       matchedTerms: ["syarat", "bayar", "pajak"]
     });
 
-    expect(message).toBe("Pertanyaan: Syarat bayar pajak\n\nSTNK dan KTP\n\nSkor akurasi: 100% (Aman)\n\nSumber: Referensi");
+    expect(message).toBe("Pertanyaan: Syarat bayar pajak\n\nSTNK dan KTP\n\nSumber: Referensi\n\nPenilaian pengguna:\nBelum ada suara.\nSilakan nilai apakah jawaban ini memuaskan.");
     expect(message).not.toContain("Jawaban:");
     expect(message).not.toContain("Kategori:");
     expect(message).toContain("Pertanyaan:");
     expect(message).not.toContain("Metode:");
     expect(message).not.toContain("rating");
+    expect(message).not.toContain("Skor akurasi:");
   });
 
-  it("menampilkan status kurang memuaskan untuk skor di bawah 75", () => {
+  it("menampilkan hasil voting kepuasan user", () => {
     const message = buildFaqMessage({
       entry: {
         id: 997,
@@ -86,9 +88,13 @@ describe("format jawaban FAQ", () => {
       },
       score: 62,
       matchedTerms: ["pajak"]
-    });
+    }, { satisfied: 3, dissatisfied: 1 }, "satisfied");
 
-    expect(message).toContain("Skor akurasi: 62% (Kurang memuaskan)");
+    expect(message).toContain("Hasil voting pengguna:");
+    expect(message).toContain("Memuaskan: ████████░░ 75% (3)");
+    expect(message).toContain("Tidak memuaskan: ███░░░░░░░ 25% (1)");
+    expect(message).toContain("Total suara: 4");
+    expect(message).toContain("Pilihan Anda: Memuaskan");
   });
 
   it("menampilkan pertanyaan, jawaban, dan sumber pada pilihan tombol FAQ", () => {
@@ -100,11 +106,21 @@ describe("format jawaban FAQ", () => {
       source: "Referensi"
     });
 
-    expect(message).toBe("Pertanyaan: STNK hilang\n\nHarus lapor polisi\n\nSkor akurasi: 100% (Aman)\n\nSumber: Referensi");
+    expect(message).toBe("Pertanyaan: STNK hilang\n\nHarus lapor polisi\n\nSumber: Referensi\n\nPenilaian pengguna:\nBelum ada suara.\nSilakan nilai apakah jawaban ini memuaskan.");
     expect(message).not.toContain("Jawaban:");
     expect(message).not.toContain("Kategori:");
     expect(message).toContain("Pertanyaan:");
     expect(message).not.toContain("rating");
+    expect(message).not.toContain("Skor akurasi:");
+  });
+
+  it("membuat tombol voting kepuasan", () => {
+    const keyboard = buildSatisfactionKeyboard(64, { satisfied: 2, dissatisfied: 1 });
+
+    expect(keyboard.inline_keyboard[0][0].text).toBe("👍 Memuaskan 67%");
+    expect(keyboard.inline_keyboard[0][0].callback_data).toBe("vote:64:s");
+    expect(keyboard.inline_keyboard[0][1].text).toBe("👎 Tidak memuaskan 33%");
+    expect(keyboard.inline_keyboard[0][1].callback_data).toBe("vote:64:d");
   });
 
   it("menampilkan panduan command pada pesan kategori", () => {

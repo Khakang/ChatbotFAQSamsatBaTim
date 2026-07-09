@@ -4,9 +4,12 @@ import {
   buildFaqMessage,
   buildStartMessage,
   buildQuestionKeyboard,
+  buildSatisfactionKeyboard,
   buildUnsupportedMessage,
   buildUnknownMessage,
-  mainMenu
+  mainMenu,
+  type SatisfactionChoice,
+  type SatisfactionStats
 } from "./replies";
 import { getCategory, getFaqById, matchFaq } from "./pattern-matcher";
 
@@ -59,6 +62,24 @@ interface ResearchUserRecord {
   last_seen_at: string;
 }
 
+interface SatisfactionVoteRecord {
+  faq_id: number;
+  telegram_id: number;
+  choice: SatisfactionChoice;
+  updated_at: string;
+}
+
+interface SatisfactionExportRow {
+  faq_id: number;
+  category: string;
+  question: string;
+  satisfied: number;
+  dissatisfied: number;
+  total: number;
+  satisfied_percent: number;
+  dissatisfied_percent: number;
+}
+
 interface TelegramApiResponse {
   ok?: boolean;
   result?: boolean | {
@@ -86,6 +107,18 @@ export default {
 
       if (url.pathname === "/research.html") {
         return exportResearchHtml(request, env);
+      }
+
+      if (url.pathname === "/satisfaction.csv") {
+        return exportSatisfactionCsv(request, env);
+      }
+
+      if (url.pathname === "/satisfaction.txt") {
+        return exportSatisfactionText(request, env);
+      }
+
+      if (url.pathname === "/satisfaction.html") {
+        return exportSatisfactionHtml(request, env);
       }
 
       return healthResponse(url.pathname);
@@ -176,7 +209,8 @@ export async function handleUpdate(update: TelegramUpdate, env: Env, ctx?: Execu
       score: result.score
     })
   );
-  await sendMessage(env, chatId, buildFaqMessage(result));
+  const stats = await getSatisfactionStats(env, result.entry.id);
+  await sendMessage(env, chatId, buildFaqMessage(result, stats), buildSatisfactionKeyboard(result.entry.id, stats));
   await sendMessage(env, chatId, buildStartMessage(), mainMenu);
 }
 
@@ -231,6 +265,46 @@ async function handleCallback(
     return;
   }
 
+  // Callback voting kepuasan memiliki format vote:FAQ_ID:s atau vote:FAQ_ID:d.
+  if (data.startsWith("vote:")) {
+    const vote = parseVoteCallback(data);
+    if (!vote) {
+      await sendMessage(env, chatId, buildUnknownMessage(), mainMenu);
+      return;
+    }
+
+    const entry = getFaqById(vote.faqId);
+    if (!entry) {
+      await sendMessage(env, chatId, buildUnknownMessage(), mainMenu);
+      return;
+    }
+
+    if (!callback.from) {
+      await sendMessage(env, chatId, buildUnknownMessage(), mainMenu);
+      return;
+    }
+
+    const stats = await saveSatisfactionVote(env, vote.faqId, callback.from.id, vote.choice);
+    console.log(
+      JSON.stringify({
+        event: "satisfaction_vote",
+        faq_id: vote.faqId,
+        telegram_id: callback.from.id,
+        choice: vote.choice,
+        satisfied: stats.satisfied,
+        dissatisfied: stats.dissatisfied
+      })
+    );
+    await editOrSendMessage(
+      env,
+      chatId,
+      messageId,
+      buildDirectFaqMessage(entry, stats, vote.choice),
+      buildSatisfactionKeyboard(entry.id, stats)
+    );
+    return;
+  }
+
   // Callback FAQ memiliki format faq:ID.
   if (data.startsWith("faq:")) {
     const entry = getFaqById(Number(data.slice(4)));
@@ -240,7 +314,8 @@ async function handleCallback(
     }
 
     console.log(JSON.stringify({ event: "callback_route", route: "faq", faq_id: entry.id }));
-    await editOrSendMessage(env, chatId, messageId, buildDirectFaqMessage(entry));
+    const stats = await getSatisfactionStats(env, entry.id);
+    await editOrSendMessage(env, chatId, messageId, buildDirectFaqMessage(entry, stats), buildSatisfactionKeyboard(entry.id, stats));
     await sendMessage(env, chatId, buildStartMessage(), mainMenu);
   }
 }
@@ -321,6 +396,26 @@ function parseCategoryCallback(data: string) {
   };
 }
 
+// Mengambil FAQ dan pilihan kepuasan dari callback voting.
+function parseVoteCallback(data: string): { faqId: number; choice: SatisfactionChoice } | null {
+  const [, faqIdValue, choiceValue] = data.split(":");
+  const faqId = Number(faqIdValue);
+
+  if (!Number.isInteger(faqId) || faqId <= 0) {
+    return null;
+  }
+
+  if (choiceValue === "s") {
+    return { faqId, choice: "satisfied" };
+  }
+
+  if (choiceValue === "d") {
+    return { faqId, choice: "dissatisfied" };
+  }
+
+  return null;
+}
+
 // Memastikan request webhook membawa secret yang sama dengan WEBHOOK_SECRET.
 function isAuthorizedTelegramRequest(request: Request, env: Env) {
   if (!env.WEBHOOK_SECRET) {
@@ -379,6 +474,55 @@ async function exportResearchHtml(request: Request, env: Env) {
   });
 }
 
+// Export rekap voting kepuasan dalam format CSV.
+async function exportSatisfactionCsv(request: Request, env: Env) {
+  const rows = await getAuthorizedSatisfactionRows(request, env);
+  if (rows instanceof Response) {
+    return rows;
+  }
+
+  const csv = buildSatisfactionCsv(rows);
+
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Disposition": 'attachment; filename="faq-satisfaction-research.csv"'
+    }
+  });
+}
+
+// Export rekap voting kepuasan dalam tabel teks.
+async function exportSatisfactionText(request: Request, env: Env) {
+  const rows = await getAuthorizedSatisfactionRows(request, env);
+  if (rows instanceof Response) {
+    return rows;
+  }
+
+  return new Response(buildSatisfactionTextTable(rows), {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  });
+}
+
+// Export rekap voting kepuasan sebagai HTML table.
+async function exportSatisfactionHtml(request: Request, env: Env) {
+  const rows = await getAuthorizedSatisfactionRows(request, env);
+  if (rows instanceof Response) {
+    return rows;
+  }
+
+  return new Response(buildSatisfactionHtmlTable(rows), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Disposition": 'inline; filename="faq-satisfaction-research.html"'
+    }
+  });
+}
+
 // Mengambil data riset hanya jika request membawa token admin yang benar.
 async function getAuthorizedResearchRows(request: Request, env: Env) {
   if (!env.ADMIN_EXPORT_TOKEN) {
@@ -394,6 +538,23 @@ async function getAuthorizedResearchRows(request: Request, env: Env) {
   }
 
   return listResearchUsers(env);
+}
+
+// Mengambil rekap voting hanya jika request membawa token admin yang benar.
+async function getAuthorizedSatisfactionRows(request: Request, env: Env) {
+  if (!env.ADMIN_EXPORT_TOKEN) {
+    return json({ ok: false, error: "ADMIN_EXPORT_TOKEN is not configured" }, 500);
+  }
+
+  if (request.headers.get("Authorization") !== `Bearer ${env.ADMIN_EXPORT_TOKEN}`) {
+    return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  if (!env.RESEARCH_STORE) {
+    return json({ ok: false, error: "RESEARCH_STORE is not configured" }, 500);
+  }
+
+  return listSatisfactionRows(env);
 }
 
 // Mengirim pesan teks ke chat Telegram.
@@ -609,6 +770,51 @@ async function listResearchUsers(env: Env) {
   return records.sort((a, b) => a.telegram_id - b.telegram_id);
 }
 
+// Mengambil semua rekap voting kepuasan FAQ dari KV.
+async function listSatisfactionRows(env: Env) {
+  const rows: SatisfactionExportRow[] = [];
+  let cursor: string | undefined;
+  const prefix = "research:faq_stats:";
+
+  do {
+    const result = await env.RESEARCH_STORE!.list({ prefix, cursor });
+    cursor = result.list_complete ? undefined : result.cursor;
+
+    for (const key of result.keys) {
+      const value = await env.RESEARCH_STORE!.get(key.name);
+      if (!value) {
+        continue;
+      }
+
+      const faqId = Number(key.name.slice(prefix.length));
+      const entry = getFaqById(faqId);
+      if (!entry) {
+        continue;
+      }
+
+      try {
+        const stats = normalizeSatisfactionStats(JSON.parse(value));
+        const total = stats.satisfied + stats.dissatisfied;
+        const percentages = calculateSatisfactionPercentages(stats);
+        rows.push({
+          faq_id: faqId,
+          category: entry.category,
+          question: entry.question,
+          satisfied: stats.satisfied,
+          dissatisfied: stats.dissatisfied,
+          total,
+          satisfied_percent: percentages.satisfied,
+          dissatisfied_percent: percentages.dissatisfied
+        });
+      } catch {
+        console.log(JSON.stringify({ event: "satisfaction_export", ok: false, key: key.name }));
+      }
+    }
+  } while (cursor);
+
+  return rows.sort((a, b) => a.faq_id - b.faq_id);
+}
+
 // Menyamakan record lama/baru agar field CSV selalu lengkap.
 function normalizeResearchUserRecord(value: unknown): ResearchUserRecord {
   const record = value as Partial<ResearchUserRecord> & { consented_at?: string };
@@ -622,6 +828,22 @@ function normalizeResearchUserRecord(value: unknown): ResearchUserRecord {
     started_at: record.started_at ?? record.consented_at ?? "",
     last_seen_at: record.last_seen_at ?? ""
   };
+}
+
+// Menyamakan record voting agar nilai kosong/rusak tetap aman.
+function normalizeSatisfactionStats(value: unknown): SatisfactionStats {
+  const record = value as Partial<SatisfactionStats>;
+
+  return {
+    satisfied: normalizeCount(record.satisfied),
+    dissatisfied: normalizeCount(record.dissatisfied)
+  };
+}
+
+// Mengubah nilai hitungan menjadi bilangan bulat tidak negatif.
+function normalizeCount(value: unknown) {
+  const count = Number(value ?? 0);
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 }
 
 // Membuat isi CSV untuk data profil riset.
@@ -648,9 +870,52 @@ function buildResearchCsv(records: ResearchUserRecord[]) {
   return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
 }
 
+// Membuat isi CSV untuk rekap voting kepuasan FAQ.
+function buildSatisfactionCsv(records: SatisfactionExportRow[]) {
+  const header = [
+    "faq_id",
+    "category",
+    "question",
+    "satisfied",
+    "dissatisfied",
+    "total",
+    "satisfied_percent",
+    "dissatisfied_percent"
+  ];
+  const rows = records.map((record) => [
+    record.faq_id,
+    record.category,
+    record.question,
+    record.satisfied,
+    record.dissatisfied,
+    record.total,
+    record.satisfied_percent,
+    record.dissatisfied_percent
+  ]);
+
+  return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
+}
+
 // Membuat tabel teks agar data riset nyaman dibaca di terminal.
 function buildResearchTextTable(records: ResearchUserRecord[]) {
   const table = buildResearchDisplayRows(records);
+  const widths = table[0].map((_, columnIndex) =>
+    Math.max(...table.map((row) => visibleLength(row[columnIndex])))
+  );
+
+  return table
+    .map((row, rowIndex) => {
+      const line = row.map((cell, columnIndex) => padRight(cell, widths[columnIndex])).join("  ");
+      const divider = widths.map((width) => "-".repeat(width)).join("  ");
+
+      return rowIndex === 0 ? `${line}\n${divider}` : line;
+    })
+    .join("\n") + "\n";
+}
+
+// Membuat tabel teks rekap voting kepuasan FAQ.
+function buildSatisfactionTextTable(records: SatisfactionExportRow[]) {
+  const table = buildSatisfactionDisplayRows(records);
   const widths = table[0].map((_, columnIndex) =>
     Math.max(...table.map((row) => visibleLength(row[columnIndex])))
   );
@@ -755,6 +1020,96 @@ function buildResearchHtmlTable(records: ResearchUserRecord[]) {
 `;
 }
 
+// Membuat HTML table untuk rekap voting kepuasan FAQ.
+function buildSatisfactionHtmlTable(records: SatisfactionExportRow[]) {
+  const [header, ...rows] = buildSatisfactionDisplayRows(records);
+  const headerCells = header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("");
+  const bodyRows = rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+    .join("");
+
+  return `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rekap Kepuasan Jawaban FAQ</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #172026;
+      background: #f6f8fb;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+
+    p {
+      margin: 0 0 20px;
+      color: #5b6673;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      background: #ffffff;
+      border: 1px solid #d9e1ea;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e6ecf2;
+      text-align: left;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    th {
+      background: #eaf1f8;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Rekap Kepuasan Jawaban FAQ</h1>
+    <p>Total FAQ yang sudah dinilai: ${records.length}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>
+`;
+}
+
 // Membuat baris tampilan dengan label kolom yang lebih ramah dibaca.
 function buildResearchDisplayRows(records: ResearchUserRecord[]) {
   return [
@@ -775,6 +1130,49 @@ function buildResearchDisplayRows(records: ResearchUserRecord[]) {
       formatJakartaTime(record.last_seen_at)
     ])
   ];
+}
+
+// Membuat baris tampilan rekap voting kepuasan.
+function buildSatisfactionDisplayRows(records: SatisfactionExportRow[]) {
+  return [
+    [
+      "FAQ ID",
+      "Kategori",
+      "Pertanyaan",
+      "Memuaskan",
+      "Tidak Memuaskan",
+      "Total",
+      "Memuaskan (%)",
+      "Tidak Memuaskan (%)"
+    ],
+    ...records.map((record) => [
+      String(record.faq_id),
+      record.category,
+      record.question,
+      String(record.satisfied),
+      String(record.dissatisfied),
+      String(record.total),
+      `${record.satisfied_percent}%`,
+      `${record.dissatisfied_percent}%`
+    ])
+  ];
+}
+
+// Menghitung persentase voting kepuasan untuk laporan.
+function calculateSatisfactionPercentages(stats: SatisfactionStats) {
+  const total = stats.satisfied + stats.dissatisfied;
+
+  if (total <= 0) {
+    return {
+      satisfied: 0,
+      dissatisfied: 0
+    };
+  }
+
+  return {
+    satisfied: Math.round((stats.satisfied / total) * 100),
+    dissatisfied: Math.round((stats.dissatisfied / total) * 100)
+  };
 }
 
 // Escape nilai agar aman untuk format CSV.
@@ -824,6 +1222,96 @@ function escapeHtml(value: string) {
 // Key penyimpanan data user riset.
 function getResearchUserKey(telegramId: number) {
   return `research:user:${telegramId}`;
+}
+
+// Menyimpan pilihan voting user dan mengembalikan total kepuasan terbaru.
+async function saveSatisfactionVote(
+  env: Env,
+  faqId: number,
+  telegramId: number,
+  choice: SatisfactionChoice
+) {
+  const stats = await getSatisfactionStats(env, faqId);
+  const previousVote = await getSatisfactionVote(env, faqId, telegramId);
+
+  if (previousVote?.choice === choice) {
+    return stats;
+  }
+
+  if (previousVote?.choice === "satisfied") {
+    stats.satisfied = Math.max(0, stats.satisfied - 1);
+  }
+
+  if (previousVote?.choice === "dissatisfied") {
+    stats.dissatisfied = Math.max(0, stats.dissatisfied - 1);
+  }
+
+  if (choice === "satisfied") {
+    stats.satisfied += 1;
+  } else {
+    stats.dissatisfied += 1;
+  }
+
+  if (!env.RESEARCH_STORE) {
+    return stats;
+  }
+
+  const timestamp = new Date().toISOString();
+  const voteRecord: SatisfactionVoteRecord = {
+    faq_id: faqId,
+    telegram_id: telegramId,
+    choice,
+    updated_at: timestamp
+  };
+
+  await env.RESEARCH_STORE.put(getSatisfactionStatsKey(faqId), JSON.stringify(stats));
+  await env.RESEARCH_STORE.put(getSatisfactionVoteKey(faqId, telegramId), JSON.stringify(voteRecord));
+
+  return stats;
+}
+
+// Mengambil total voting kepuasan untuk satu FAQ.
+async function getSatisfactionStats(env: Env, faqId: number): Promise<SatisfactionStats> {
+  const emptyStats = { satisfied: 0, dissatisfied: 0 };
+  const value = await env.RESEARCH_STORE?.get(getSatisfactionStatsKey(faqId));
+  if (!value) {
+    return emptyStats;
+  }
+
+  try {
+    return normalizeSatisfactionStats(JSON.parse(value));
+  } catch {
+    return emptyStats;
+  }
+}
+
+// Mengambil pilihan terakhir user untuk satu FAQ agar vote tidak dobel.
+async function getSatisfactionVote(env: Env, faqId: number, telegramId: number) {
+  const value = await env.RESEARCH_STORE?.get(getSatisfactionVoteKey(faqId, telegramId));
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<SatisfactionVoteRecord>;
+    if (parsed.choice === "satisfied" || parsed.choice === "dissatisfied") {
+      return parsed as SatisfactionVoteRecord;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+// Key total voting kepuasan per FAQ.
+function getSatisfactionStatsKey(faqId: number) {
+  return `research:faq_stats:${faqId}`;
+}
+
+// Key pilihan terakhir user per FAQ.
+function getSatisfactionVoteKey(faqId: number, telegramId: number) {
+  return `research:faq_vote:${faqId}:${telegramId}`;
 }
 
 // Menyimpan message_id agar bisa dibersihkan lewat command /clear.

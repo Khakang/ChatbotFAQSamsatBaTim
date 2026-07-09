@@ -48,7 +48,7 @@ The bot supports:
 /clear
 ```
 
-This command tries to delete the whole bot conversation from the first message known by the bot until the latest `/clear` command. It includes user messages, bot replies, media messages that were rejected by the bot, and the `/clear` command message itself when Telegram allows it. After clearing, the bot sends the main menu again so the chat page stays open and does not look empty.
+This command tries to delete the whole bot conversation from the first message known by the bot until the latest `/clear` command. It includes user messages, bot replies, media messages that were rejected by the bot, and the `/clear` command message itself when Telegram allows it. The bot sends a fresh main menu immediately, then runs the old-message cleanup in the background so the chat page stays open and does not look empty.
 
 Message IDs are stored in Cloudflare KV through the `MESSAGE_STORE` binding, so tracking can survive Worker runtime restarts. The bot stores the latest tracked message IDs and also stores a first-to-last message ID range per chat. When `/clear` runs, the bot builds delete candidates from that range and deletes them in Telegram batches.
 
@@ -614,7 +614,7 @@ Bot mendukung:
 /clear
 ```
 
-Command ini mencoba menghapus seluruh percakapan bot dari pesan pertama yang diketahui bot sampai command `/clear` terbaru. Ini mencakup pesan user, balasan bot, pesan media yang ditolak oleh bot, dan pesan `/clear` itu sendiri jika Telegram mengizinkan. Setelah selesai, bot mengirim menu utama lagi agar halaman chat tetap terbuka dan tidak terlihat kosong.
+Command ini mencoba menghapus seluruh percakapan bot dari pesan pertama yang diketahui bot sampai command `/clear` terbaru. Ini mencakup pesan user, balasan bot, pesan media yang ditolak oleh bot, dan pesan `/clear` itu sendiri jika Telegram mengizinkan. Bot langsung mengirim menu utama baru, lalu membersihkan pesan lama di background agar halaman chat tetap terbuka dan tidak terlihat kosong.
 
 Message ID disimpan di Cloudflare KV melalui binding `MESSAGE_STORE`, sehingga data pelacakan tetap tersedia meskipun runtime Worker restart. Bot menyimpan daftar message ID terbaru dan juga menyimpan rentang message ID pertama sampai terakhir per chat. Saat `/clear` dijalankan, bot membuat kandidat penghapusan dari rentang tersebut lalu menghapusnya secara batch di Telegram.
 

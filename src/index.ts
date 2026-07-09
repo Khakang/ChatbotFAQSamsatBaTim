@@ -78,7 +78,7 @@ const trackedMessageRangesByChat = new Map<number, MessageRangeRecord>();
 
 export default {
   // Entry point utama Cloudflare Worker untuk menerima request HTTP.
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     // GET dipakai untuk health check dan export data riset.
@@ -124,14 +124,14 @@ export default {
         callback_data: update.callback_query?.data
       })
     );
-    await handleUpdate(update, env);
+    await handleUpdate(update, env, ctx);
 
     return json({ ok: true });
   }
 };
 
 // Memproses update Telegram, baik pesan teks maupun callback dari tombol.
-export async function handleUpdate(update: TelegramUpdate, env: Env) {
+export async function handleUpdate(update: TelegramUpdate, env: Env, ctx?: ExecutionContext) {
   if (update.callback_query) {
     await handleCallback(update.callback_query, env);
     return;
@@ -156,7 +156,7 @@ export async function handleUpdate(update: TelegramUpdate, env: Env) {
 
   // Command clear mencoba menghapus pesan yang sudah dilacak oleh bot.
   if (isClearCommand(text)) {
-    await handleClearCommand(env, chatId, message.message_id);
+    await handleClearCommand(env, chatId, message.message_id, ctx);
     return;
   }
 
@@ -277,22 +277,34 @@ async function handleStartCommand(env: Env, chatId: number, user?: TelegramUser)
 }
 
 // Membersihkan chat berdasarkan message_id yang dilacak dan rentang pesan yang diketahui bot.
-async function handleClearCommand(env: Env, chatId: number, commandMessageId?: number) {
+async function handleClearCommand(
+  env: Env,
+  chatId: number,
+  commandMessageId?: number,
+  ctx?: ExecutionContext
+) {
   await trackMessageId(env, chatId, commandMessageId);
 
   const trackedMessageIds = await getTrackedMessageIds(env, chatId);
   const messageIds = await getClearCandidateMessageIds(env, chatId, trackedMessageIds, commandMessageId);
-  const deletedCount = await deleteMessagesSafely(env, chatId, messageIds);
-
   await clearTrackedMessageIds(env, chatId);
-  console.log(
-    JSON.stringify({
-      event: "clear_chat",
-      attempted_count: messageIds.length,
-      deleted_count: deletedCount
-    })
-  );
   await sendMessage(env, chatId, buildStartMessage(), mainMenu);
+
+  const cleanup = deleteMessagesSafely(env, chatId, messageIds).then((deletedCount) => {
+    console.log(
+      JSON.stringify({
+        event: "clear_chat",
+        attempted_count: messageIds.length,
+        deleted_count: deletedCount
+      })
+    );
+  });
+
+  if (ctx) {
+    ctx.waitUntil(cleanup);
+  } else {
+    await cleanup;
+  }
 }
 
 // Mengambil nama kategori dan halaman dari callback kategori.

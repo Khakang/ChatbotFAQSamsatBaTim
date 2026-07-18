@@ -125,6 +125,34 @@ describe("matchFaq", () => {
     expect(result?.entry.category).toBe(expectedCategory);
   });
 
+  it.each([
+    ["stnk ilang harus ngapain ya", 54, "Dokumen"],
+    ["stnk raib kebawa banjir gimana min", 54, "Dokumen"],
+    ["bpkb lenyap entah kemana urusnya gimana", 55, "Dokumen"],
+    ["motor mati pajak 3 tahun masih bisa dibayar?", 33, "Pajak"],
+    ["telat pajak motor lama banget dendanya gimana", 26, "Pajak"],
+    ["pajak motor mau bayar tapi stnk hilang duluan", 42, "Pajak"],
+    ["beli motor bekas tapi nama masih pemilik lama harus apa", 73, "Balik Nama"],
+    ["motor bekas belum balik nama pajaknya gimana", 85, "Balik Nama"],
+    ["plat luar kota mau pindah ke bandung timur gimana", 90, "Mutasi"],
+    ["cabut berkas motor ke domisili baru apa aja", 90, "Mutasi"],
+    ["gesek rangka mesin buat apa sih", 103, "Cek Fisik"],
+    ["nomor rangka susah dicari gimana", 115, "Cek Fisik"],
+    ["signal gagal selfie wajah buram harus apa", 126, "SIGNAL"],
+    ["mau daftar signal tapi verifikasi muka gagal", 126, "SIGNAL"],
+    ["pajak tahunan pake hp aplikasi apa", 45, "Pajak"],
+    ["samsat keliling hari ini nongkrong dimana", 135, "Samsat Keliling"],
+    ["toilet di samsat ada ga", 138, "Fasilitas"],
+    ["mushola ada ga kalau nunggu pajak", 139, "Fasilitas"],
+    ["petugas jutek komplain kemana", 142, "Pengaduan"],
+    ["drive thru bawa berkas apa aja", 150, "Layanan"]
+  ] as const)("mencocokkan pertanyaan aneh tapi masih terkait Samsat: %s", (input, expectedId, expectedCategory) => {
+    const result = matchFaq(input);
+
+    expect(result?.entry.id).toBe(expectedId);
+    expect(result?.entry.category).toBe(expectedCategory);
+  });
+
   it("mengembalikan null jika tidak ada pola FAQ yang cukup cocok", () => {
     expect(matchFaq("halo admin selamat pagi")).toBeNull();
   });

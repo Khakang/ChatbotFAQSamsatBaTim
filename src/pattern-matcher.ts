@@ -32,16 +32,21 @@ const stopWords = new Set([
   "dan",
   "atau",
   "untuk",
+  "dapat",
+  "bisa",
   "hari",
   "berapa",
   "bagaimana",
   "gimana",
+  "jika",
+  "mengapa",
   "kapan",
   "kah",
   "nya",
   "saya",
   "mau",
   "kalau",
+  "saat",
   "begitu",
   "saja",
   "dia",
@@ -200,6 +205,9 @@ const genericIntentTokens = new Set([
   "kendaraan",
   "mobil",
   "motor",
+  "melayani",
+  "layanan",
+  "pelayanan",
   "dokumen",
   "syarat",
   "persyaratan",
@@ -308,8 +316,10 @@ const vehicleInspectionTokens = new Set([
   "balik", "nama", "mutasi", "pindah", "pajak", "stnk", "bpkb", "nomor",
   "rangka", "mesin", "biaya", "tarif", "dimana", "lokasi", "tempat", "alamat",
   "samsat", "hasil", "masa", "berlaku", "baru", "modifikasi", "dimodifikasi",
-  "proses", "alur", "cara", "syarat", "persyaratan", "dokumen", "bawa",
-  "membawa", "waktu", "lama", "gratis"
+  "proses", "alur", "cara", "syarat", "persyaratan", "dokumen", "layanan",
+  "melayani", "pelayanan", "memerlukan", "diperlukan", "pemilik", "kepemilikan",
+  "bawa", "membawa", "dibawa", "diperiksa", "dikenakan", "diwakilkan",
+  "tersedia", "area", "waktu", "lama", "gratis"
 ]);
 
 // Fungsi utama untuk mencari FAQ yang paling cocok dengan pertanyaan user.
@@ -492,8 +502,11 @@ function scoreEntry(
     }
 
     const compactPattern = tokenize(pattern).join(" ");
-    if (pattern === normalizedInput || compactPattern === compactInput) {
-      phraseScore = Math.max(phraseScore, patternSpec.exactScore + 50);
+    if (pattern === normalizedInput) {
+      phraseScore = Math.max(phraseScore, patternSpec.exactScore + 100);
+      matchedTerms.add(pattern);
+    } else if (compactPattern === compactInput) {
+      phraseScore = Math.max(phraseScore, patternSpec.exactScore + 40);
       matchedTerms.add(pattern);
     } else if (
       pattern.includes(normalizedInput) ||

@@ -39,6 +39,21 @@ describe("matchFaq", () => {
     }
   });
 
+  it("tidak fallback pada variasi percakapan kalau pertanyaan bagaimana", () => {
+    const failures: string[] = [];
+
+    for (const entry of faqEntries) {
+      const conversationalQuestion = `Kalau ${entry.question} bagaimana?`;
+      const result = matchFaq(conversationalQuestion);
+
+      if (!result) {
+        failures.push(conversationalQuestion);
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+
   it.each([
     ["alamat samsat bandung timur", 10, "Layanan"],
     ["samsat buka hari sabtu?", 7, "Layanan"],

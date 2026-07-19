@@ -199,6 +199,64 @@ describe("matchFaq", () => {
     expect(result?.entry.category).toBe(expectedCategory);
   });
 
+  it.each([
+    [
+      "Min saya kemarin kena musibah banjir, motor sempat terendam dan plat nomor depannya hilang kebawa air, tapi STNK sama BPKB masih ada. Kalau saya mau bikin plat nomor baru itu harus bikin surat kehilangan dari polisi dulu atau bisa langsung datang ke Samsat?",
+      66,
+      "Dokumen"
+    ],
+    [
+      "Saya mau tanya, beberapa hari lalu motor saya kena banjir dan setelah air surut ternyata STNK yang disimpan di motor sama plat nomornya hilang. Kalau dua-duanya hilang seperti ini saya harus mengurus surat kehilangan dulu atau bagaimana alurnya?",
+      66,
+      "Dokumen"
+    ],
+    [
+      "Min saya baru beli motor bekas dari orang, tapi ternyata nama di STNK masih pemilik yang sebelumnya lagi dan saya juga tidak punya fotokopi KTP orang yang namanya ada di STNK. Kalau pajaknya sebentar lagi habis saya masih bisa bayar pajak atau harus balik nama dulu?",
+      73,
+      "Balik Nama"
+    ],
+    [
+      "Saya mau bayar pajak motor punya bapak saya, tapi bapak saya sudah meninggal beberapa waktu lalu dan STNK masih atas nama beliau. Kalau saya sebagai anak mau bayar pajaknya itu bisa langsung atau kendaraannya harus dibalik nama dulu?",
+      73,
+      "Balik Nama"
+    ],
+    [
+      "Saya sekarang kerja di luar kota dan motor saya ikut dibawa ke tempat saya kerja, tapi sebentar lagi sudah waktunya ganti plat lima tahunan. Apa motornya harus dibawa pulang ke Samsat asal atau bisa cek fisik di Samsat terdekat?",
+      48,
+      "Pajak"
+    ],
+    [
+      "Saya sekarang sudah tinggal dan kerja di Bandung tapi motor saya masih plat luar Jawa Barat. Kalau saya mau bayar pajak tahunan apakah bisa dilakukan di Samsat Bandung Timur atau harus pulang ke daerah asal kendaraan?",
+      98,
+      "Mutasi"
+    ],
+    [
+      "Saya punya motor lama yang sudah beberapa tahun tidak dipakai jadi pajaknya juga sudah mati cukup lama. Sekarang motornya mau saya pakai lagi dan saya ingin mengaktifkan surat-suratnya, kira-kira saya harus mulai mengurus dari mana?",
+      33,
+      "Pajak"
+    ],
+    [
+      "Saya baru pertama kali bayar pajak kendaraan secara online lewat SIGNAL dan pembayarannya sudah berhasil. Tapi saya bingung setelah itu apakah masih harus datang ke Samsat untuk pengesahan STNK atau semuanya sudah selesai secara online?",
+      127,
+      "SIGNAL"
+    ],
+    [
+      "Min beberapa waktu lalu motor saya mengalami kecelakaan dan plat nomor bagian depannya rusak sampai bengkok dan tulisannya sudah tidak terbaca jelas. Kalau saya mau mengganti dengan plat baru apakah harus menunggu masa ganti plat lima tahunan atau bisa diurus sekarang?",
+      66,
+      "Dokumen"
+    ],
+    [
+      "Min saya beli motor bekas sekitar dua tahun lalu tapi sampai sekarang belum balik nama dan nama di STNK masih pemilik lama. Sekarang pajaknya sudah telat, sebentar lagi masuk waktu ganti plat lima tahunan, sementara saya sudah tidak punya kontak pemilik sebelumnya dan KTP-nya juga tidak ada. Kalau saya mau membereskan semuanya supaya kendaraan bisa atas nama saya sendiri, saya harus mulai dari proses apa dulu?",
+      73,
+      "Balik Nama"
+    ]
+  ] as const)("menangani pertanyaan random panjang hasil stress test: %s", (input, expectedId, expectedCategory) => {
+    const result = matchFaq(input);
+
+    expect(result?.entry.id).toBe(expectedId);
+    expect(result?.entry.category).toBe(expectedCategory);
+  });
+
   it("mengembalikan null jika tidak ada pola FAQ yang cukup cocok", () => {
     expect(matchFaq("halo admin selamat pagi")).toBeNull();
   });
